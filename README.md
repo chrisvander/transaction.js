@@ -8,7 +8,7 @@ A simple way to set up automated trading using tools like Robinhood, Alpha Vanta
 
 To install, run
 ```
-npm install transaction --save
+npm install transaction.js --save
 ```
 
 # Contributing
