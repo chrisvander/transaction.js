@@ -1,6 +1,6 @@
 # transactionJS
 
-![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 A simple way to set up automated trading using tools like Robinhood, Alpha Vantage, and others - while making it easy to write code that doesn't become cumbersome or hard to maintain.
 
