@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 require('dotenv').config();
 
-const Robinhood = require('../src');
+const { Robinhood } = require('../src');
 const client = new Robinhood();
 
 // pass username, password, and trade function
@@ -16,18 +16,35 @@ function trade(error) {
 		console.log(error);
 		return;
 	}
+
 	console.log('Ready to trade!');
+
+	// Adds an algorithm to run later
+	//
+	// These algorithms should be designed to take data from ONE
+	// source, aka AAPL or BTC, and not try to balance multiple.
+	//
+	// Any algorithm function should return a Promise
 
   client.addAlgorithm('ema', emaAlgorithm);
 
-  client.execute('ema');
+  // Execute a saved algorithm
+  client.execute({
+  	name: 'ema',
+  	symbol: 'BTC',
+  	max_usd: '134.32'
+  });
 
-  console.log(client);
-	}
+  // or execute one in command by omitting 'name' from options
+  client.execute({
+  	symbol: 'BTC',
+  	max_usd: '134.32'
+  }, emaAlgorithm);
+}
 
-// An algorithm that will take in data and reply with buy or sell signals
-function emaAlgorithm() {
-	console.log("started")
+// An algorithm that will take in data and reply with performance data or 
+function emaAlgorithm(buy,sell) {
+	console.log("started");
 
 
 }

@@ -45,70 +45,73 @@ function getPaginated(token, url, callback, err) {
   }).catch(error => err(error));
 }
 
-module.exports = function transaction() {
-  this.portfolio = [];
-  this.init = (opts, callback) => {
-    // For error handling
-    const err = (error) => {
-      callback(error);
-    };
+module.exports = {
+  Robinhood: function transaction() {
+    this.portfolio = [];
+    this.init = (opts, callback) => {
+      // For error handling
+      const err = (error) => {
+        callback(error);
+      };
 
-    // Logs in with client credentials listed in options
-    login(opts.username, opts.password, (res) => {
-      // Creates requests object to track multiple requests to the API
-      const requests = [];
+      // Logs in with client credentials listed in options
+      login(opts.username, opts.password, (res) => {
+        // Creates requests object to track multiple requests to the API
+        const requests = [];
 
-      // Saves the authorization token
-      this.token = res.body.token;
+        // Saves the authorization token
+        this.token = res.body.token;
 
-      // Gathers the current account's past and present positions
-      getPaginated(this.token, 'https://api.robinhood.com/positions/', (pos) => {
-        this.positions = pos;
+        // Gathers the current account's past and present positions
+        getPaginated(this.token, 'https://api.robinhood.com/positions/', (pos) => {
+          this.positions = pos;
 
-        // Finds just current positions (with purchased shares)
-        // Then this grabs the instrument of each live position, and saves each symbol
-        pos.forEach((obj) => {
-          if (obj.quantity > 0) {
-            requests.push(getWithAuth(this.token, obj.instrument, (ticker) => {
-              this.portfolio.push(ticker.symbol);
-            }, err));
-          }
-        });
+          // Finds just current positions (with purchased shares)
+          // Then this grabs the instrument of each live position, and saves each symbol
+          pos.forEach((obj) => {
+            if (obj.quantity > 0) {
+              requests.push(getWithAuth(this.token, obj.instrument, (ticker) => {
+                this.portfolio.push(ticker.symbol);
+              }, err));
+            }
+          });
 
-        // Gets user information, saves it to object
-        requests.push(getWithAuth(this.token, 'https://api.robinhood.com/user/', (info) => {
-          this.user = info;
-        }, err));
+          // Gets user information, saves it to object
+          requests.push(getWithAuth(this.token, 'https://api.robinhood.com/user/', (info) => {
+            this.user = info;
+          }, err));
 
-        // Gets account information, saves it to object
-        requests.push(getWithAuth(this.token, 'https://api.robinhood.com/accounts/', (accounts) => {
-          [this.account] = accounts.results;
-        }, err));
+          // Gets account information, saves it to object
+          requests.push(getWithAuth(this.token, 'https://api.robinhood.com/accounts/', (accounts) => {
+            [this.account] = accounts.results;
+          }, err));
 
-        // Awaits all requests to complete, and then replies to the callback
-        Promise.all(requests).then(() => {
-          callback();
+          // Awaits all requests to complete, and then replies to the callback
+          Promise.all(requests).then(() => {
+            callback();
+          });
         });
       });
-    });
-  };
+    };
 
-  this.get = (url, callback, err) => getWithAuth(this.token, url, (res) => {
-    if (res.results) callback(res.results);
-    else callback(res);
-  }, err);
+    this.get = (url, callback, err) => getWithAuth(this.token, url, (res) => {
+      if (res.results) callback(res.results);
+      else callback(res);
+    }, err);
 
-  this.getPaginated = (url, callback, err) => getPaginated(this.token, url, callback, err);
+    this.getPaginated = (url, callback, err) => getPaginated(this.token, url, callback, err);
 
-  // ALL ABOUT ALGORITHMS
+    // ALL ABOUT ALGORITHMS
 
-  this.algorithms = [];
+    this.algorithms = [];
 
-  this.addAlgorithm = (name, callback) => {
-    this.algorithms.push({ name, func: callback });
-  };
+    this.addAlgorithm = (name, callback) => {
+      this.algorithms.push({ name, func: callback });
+    };
 
-  this.execute = (name) => {
-    this.algorithms.find(x => x.name === name).func();
-  };
+    this.execute = (opts, func) => {
+      if (opts.name) return this.algorithms.find(x => x.name === opts.name).func();
+      else return func();
+    };
+  },
 };
