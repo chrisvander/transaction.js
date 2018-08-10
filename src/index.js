@@ -111,7 +111,7 @@ module.exports = {
 
     this.execute = (opts, func) => {
       if (opts.name) return this.algorithms.find(x => x.name === opts.name).func();
-      else return func();
+      return func();
     };
   },
 };
