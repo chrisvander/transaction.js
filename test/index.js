@@ -1,6 +1,6 @@
 import { assert } from 'chai';
-import robinhood from '../src';
-const client = new robinhood();
+import { Robinhood } from '../src';
+const client = new Robinhood();
 require('dotenv').config();
 
 describe('Login to Robinhood', function() {
