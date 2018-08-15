@@ -24,10 +24,10 @@ function login(user, pass, callback, err) {
 }
 
 function reqWithAuth(token, url, callback, err, type) {
-  var _method = (type) ? type : 'GET';
+  const rpMethod = (type) || 'GET';
   return rp({
     uri: url,
-    method: _method,
+    method: rpMethod,
     headers: { Authorization: `Token ${token}` },
     json: true
   }).then(res => callback(res)).catch(error => err(error));
@@ -46,32 +46,34 @@ function getPaginated(token, url, callback, err) {
   }).catch(error => err(error));
 }
 
-var alpha_vantage, news_api, token;
+let alphaVantage;
+// let newsAPI;
+let token;
 
-var get = (url, callback, err) => reqWithAuth(token, url, (res) => {
-  if (res.results) callback(res.results);
-  else callback(res);
-}, err);
+// const get = (url, callback, err) => reqWithAuth(token, url, (res) => {
+//   if (res.results) callback(res.results);
+//   else callback(res);
+// }, err);
 
 module.exports = {
   Robinhood: function transaction() {
     this.portfolio = [];
     this.init = (opts, callback) => {
       const err = (error) => {
-        if (error.error && error.error.detail === "Invalid Token.") this.authorize(opts,callback,this);
+        if (error.error && error.error.detail === 'Invalid Token.') this.authorize(opts, callback, this);
         else callback(error);
       };
-      this.authorize(opts,callback,err);
+      this.authorize(opts, callback, err);
     };
 
-    this.logout = () => reqWithAuth(token, 'https://api.robinhood.com/api-token-logout/', ()=>undefined, (err) => {
-      console.log(err)
+    this.logout = () => reqWithAuth(token, 'https://api.robinhood.com/api-token-logout/', () => undefined, (err) => {
+      throw new Error(err);
     }, 'POST');
 
-    this.authorize = (opts,callback,err) => {
+    this.authorize = (opts, callback, err) => {
       if (token) this.logout();
-      if (opts.alpha_vantage) alpha_vantage = opts.alpha_vantage;
-      if (opts.news_api) news_api = opts.news_api;
+      if (opts.alphaVantage) alphaVantage = opts.alphaVantage;
+      // if (opts.newsAPI) newsAPI = opts.newsAPI;
       login(opts.robinhood.username, opts.robinhood.password, (res) => {
         // Creates requests object to track multiple requests to the API
         const requests = [];
@@ -109,7 +111,7 @@ module.exports = {
           });
         }, err);
       });
-    }
+    };
 
     this.get = (url, callback, err) => reqWithAuth(token, url, (res) => {
       if (res.results) callback(res.results);
@@ -128,9 +130,9 @@ module.exports = {
     this.algorithms = [];
 
     this.addAlgorithm = (name, callback) => {
-      this.algorithms.push({ 
-        'name': name, 
-        'func': callback 
+      this.algorithms.push({
+        name,
+        func: callback
       });
       // console.log(this.algorithms[this.algorithms.length-1])
     };
@@ -142,34 +144,35 @@ module.exports = {
       buy: () => {
         // if (this.algo.passed_options.dry)
       },
-      getStockData: async (opts, callback, backtest) => {
-        var instr, quote;
+      getStockData: async (opts, callback) => {
+        let instr;
+        let quote;
 
-        await rp("https://api.robinhood.com/instruments/?symbol="+opts.symbol).then(res => {
+        await rp(`https://api.robinhood.com/instruments/?symbol=${opts.symbol}`).then((res) => {
           instr = JSON.parse(res).results[0];
-        }).catch(err => {
-          console.log(err);
+        }).catch((err) => {
+          throw new Error(err);
         });
 
-        if (!instr) throw new Error("Instrument was not found")
+        if (!instr) throw new Error('Instrument was not found');
 
-        await rp(instr.quote).then(res => {
+        await rp(instr.quote).then((res) => {
           quote = JSON.parse(res);
-        }).catch(err => {
-          console.log(err);
+        }).catch((err) => {
+          throw new Error(err);
         });
 
         this.algo.passed_options = opts;
-        var data = {
+        const data = {
           ema: {
-            daily: (size) => data.ema_data.daily[size],
-            weekly: (size) => data.ema_data.weekly[size],
-            monthly: (size) => data.ema_data.monthly[size],
+            daily: size => data.ema_data.daily[size],
+            weekly: size => data.ema_data.weekly[size],
+            monthly: size => data.ema_data.monthly[size],
           },
           sma: {
-            daily: (size) => data.sma_data.daily[size],
-            weekly: (size) => data.sma_data.weekly[size],
-            monthly: (size) => data.sma_data.monthly[size],
+            daily: size => data.sma_data.daily[size],
+            weekly: size => data.sma_data.weekly[size],
+            monthly: size => data.sma_data.monthly[size],
           },
           ema_data: {
             daily: {},
@@ -183,106 +186,110 @@ module.exports = {
           },
           macd: {}
         };
-        var promise_array = [];
-        var get_av = (func,interval,size,series_type,callback) => {
-          var qs = {
+        const promiseArray = [];
+        const getAV = (func, interval, size, seriesType, cback) => {
+          const qs = {
             function: func,
             symbol: opts.symbol,
-            interval: interval,
-            series_type: (series_type) ? series_type : 'close',
-            apikey: alpha_vantage
-          }
+            interval,
+            series_type: (seriesType) || 'close',
+            apikey: alphaVantage
+          };
           if (size) qs.time_period = size;
           return rp({
-            url: "https://www.alphavantage.co/query",
-            qs: qs
+            url: 'https://www.alphavantage.co/query',
+            qs
           }).then((res) => {
-            res = JSON.parse(res);
-            if (res['Information']) throw new Error(
-              "Alpha Vantage Call volume exceeded - try decreasing how often the API is verified"
-            );
-            if (res['Error Message']) throw new Error(
-              res['Error Message']
-            );
-            var obj = res[Object.keys(res)[1]];
-            var first_el = obj[Object.keys(obj)[0]];
-            callback(first_el[Object.keys(first_el)[0]]);
+            const resParsed = JSON.parse(res);
+            if (resParsed.Information) {
+              throw new Error('Alpha Vantage Call volume exceeded - try decreasing how often the API is verified');
+            }
+            if (resParsed['Error Message']) {
+              throw new Error(res['Error Message']);
+            }
+            const obj = resParsed[Object.keys(resParsed)[1]];
+            const firstEl = obj[Object.keys(obj)[0]];
+            cback(firstEl[Object.keys(firstEl)[0]]);
           });
         };
-        var getters = {
+        const getters = {
           get invested_money() {
-
+            return undefined;
           },
           get available_money() {
-
+            return undefined;
           },
           get price() {
             data.price = quote.ask_price;
+            return undefined;
           },
           get sentiment() {
-
+            return undefined;
           },
           sma: {
             daily: (size) => {
-              promise_array.push(get_av('SMA','daily',size,opts.sma_series_type, (res) => {
+              promiseArray.push(getAV('SMA', 'daily', size, opts.sma_series_type, (res) => {
                 data.sma_data.daily[size] = res;
               }));
             },
             weekly: (size) => {
-              promise_array.push(get_av('SMA','weekly',size,opts.sma_series_type, (res) => {
+              promiseArray.push(getAV('SMA', 'weekly', size, opts.sma_series_type, (res) => {
                 data.sma_data.weekly[size] = res;
               }));
             },
             monthly: (size) => {
-              promise_array.push(get_av('SMA','monthly',size,opts.sma_series_type, (res) => {
+              promiseArray.push(getAV('SMA', 'monthly', size, opts.sma_series_type, (res) => {
                 data.sma_data.monthly[size] = res;
               }));
             }
           },
           ema: {
             daily: (size) => {
-              promise_array.push(get_av('EMA','daily',size,opts.ema_series_type, (res) => {
+              promiseArray.push(getAV('EMA', 'daily', size, opts.ema_series_type, (res) => {
                 data.ema_data.daily[size] = res;
               }));
             },
             weekly: (size) => {
-              promise_array.push(get_av('EMA','weekly',size,opts.ema_series_type, (res) => {
+              promiseArray.push(getAV('EMA', 'weekly', size, opts.ema_series_type, (res) => {
                 data.ema_data.weekly[size] = res;
               }));
             },
             monthly: (size) => {
-              promise_array.push(get_av('EMA','monthly',size,opts.ema_series_type, (res) => {
+              promiseArray.push(getAV('EMA', 'monthly', size, opts.ema_series_type, (res) => {
                 data.ema_data.monthly[size] = res;
               }));
             }
           },
           macd: {
             get daily() {
-              promise_array.push(get_av('MACD','daily',undefined,opts.macd_series_type, (res) => {
+              promiseArray.push(getAV('MACD', 'daily', undefined, opts.macd_series_type, (res) => {
                 data.macd.daily = res;
               }));
+              return undefined;
             },
             get weekly() {
-              promise_array.push(get_av('MACD','weekly',undefined,opts.macd_series_type, (res) => {
+              promiseArray.push(getAV('MACD', 'weekly', undefined, opts.macd_series_type, (res) => {
                 data.macd.weekly = res;
               }));
+              return undefined;
             },
             get monthly() {
-              promise_array.push(get_av('MACD','monthly',undefined,opts.macd_series_type, (res) => {
+              promiseArray.push(getAV('MACD', 'monthly', undefined, opts.macd_series_type, (res) => {
                 data.macd.monthly = res;
               }));
+              return undefined;
             }
           }
         };
 
         callback(() => data, () => data, getters);
-        await Promise.all(promise_array);
+        await Promise.all(promiseArray);
         callback(this.algo.buy, this.algo.sell, data);
       },
       // getCryptoData: async (opts, callback) => {
       //   this.algo.passed_options = opts;
       //   var data = {};
-      //   var promise_array = [];
+      //   var promiseArray = [];
       //   var getters = {
       //     get invested_money() {
 
@@ -305,25 +312,19 @@ module.exports = {
       //   };
 
       //   callback(() => data, () => data, getters);
-      //   await Promise.all(promise_array);
+      //   await Promise.all(promiseArray);
       //   // callback(this.algo.buy, this.algo.sell, data);
       // }
     };
 
     this.execute = (opts, func) => {
-      var toExec;
+      let toExec;
       if (opts.name && !func) toExec = this.algorithms.find(x => x.name === opts.name).func;
       else toExec = func;
       // if (opts.crypto) return this.algo.getCryptoData(opts, toExec).catch(err=>console.log(err));
-      /*else*/ return this.algo.getStockData(opts, toExec).catch(err=>console.log(err));
+      return this.algo.getStockData(opts, toExec).catch((err) => {
+        throw new Error(err);
+      });
     };
-
-    // this.backtest = (opts, func) => {
-    //   var toExec;
-    //   if (opts.name && !func) toExec = this.algorithms.find(x => x.name === opts.name).func;
-    //   else toExec = func;
-    //   // if (opts.crypto) return this.algo.getCryptoData(opts, toExec).catch(err=>console.log(err));
-    //   /*else*/ return this.algo.getStockData(opts, toExec, true).catch(err=>console.log(err));
-    // };
   },
 };

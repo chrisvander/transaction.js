@@ -10,8 +10,8 @@ client.init({
 		username: process.env.RH_USERNAME,
 		password: process.env.RH_PASSWORD
 	},
-	alpha_vantage: process.env.ALPHA_VANTAGE,
-	news_api: process.env.NEWS_API
+	alphaVantage: process.env.ALPHA_VANTAGE,
+	newsAPI: process.env.NEWS_API
 }, (error) => {
 	if (error) {
 		console.log(error);
