@@ -134,7 +134,6 @@ module.exports = {
         name,
         func: callback
       });
-      // console.log(this.algorithms[this.algorithms.length-1])
     };
 
     this.algo = {
@@ -286,42 +285,12 @@ module.exports = {
         await Promise.all(promiseArray);
         callback(this.algo.buy, this.algo.sell, data);
       },
-      // getCryptoData: async (opts, callback) => {
-      //   this.algo.passed_options = opts;
-      //   var data = {};
-      //   var promiseArray = [];
-      //   var getters = {
-      //     get invested_money() {
-
-      //     },
-      //     get available_money() {
-
-      //     },
-      //     get price() {
-      //       return quote.ask_price;
-      //     },
-      //     get sentiment() {
-
-      //     },
-      //     get sma() {
-
-      //     },
-      //     get ema() {
-
-      //     }
-      //   };
-
-      //   callback(() => data, () => data, getters);
-      //   await Promise.all(promiseArray);
-      //   // callback(this.algo.buy, this.algo.sell, data);
-      // }
     };
 
     this.execute = (opts, func) => {
       let toExec;
       if (opts.name && !func) toExec = this.algorithms.find(x => x.name === opts.name).func;
       else toExec = func;
-      // if (opts.crypto) return this.algo.getCryptoData(opts, toExec).catch(err=>console.log(err));
       return this.algo.getStockData(opts, toExec).catch((err) => {
         throw new Error(err);
       });
