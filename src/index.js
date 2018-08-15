@@ -180,28 +180,35 @@ module.exports = {
             daily: {},
             weekly: {},
             monthly: {}
-          }
+          },
+          macd: {}
         };
         var promise_array = [];
-        var get_av = (func,interval,size,series_type,callback) => rp({
-          url: "https://www.alphavantage.co/query",
-          qs: {
+        var get_av = (func,interval,size,series_type,callback) => {
+          var qs = {
             function: func,
             symbol: opts.symbol,
             interval: interval,
-            time_period: size,
             series_type: (series_type) ? series_type : 'close',
             apikey: alpha_vantage
           }
-        }).then((res) => {
-          res = JSON.parse(res);
-          if (res['Information']) throw new Error(
-            "Alpha Vantage Call volume exceeded - try decreasing how often the API is verified"
+          if (size) qs.time_period = size;
+          return rp({
+            url: "https://www.alphavantage.co/query",
+            qs: qs
+          }).then((res) => {
+            res = JSON.parse(res);
+            if (res['Information']) throw new Error(
+              "Alpha Vantage Call volume exceeded - try decreasing how often the API is verified"
             );
-          var obj = res[Object.keys(res)[1]];
-          var first_el = obj[Object.keys(obj)[0]];
-          callback(first_el[Object.keys(first_el)[0]]);
-        });
+            if (res['Error Message']) throw new Error(
+              res['Error Message']
+            );
+            var obj = res[Object.keys(res)[1]];
+            var first_el = obj[Object.keys(obj)[0]];
+            callback(first_el[Object.keys(first_el)[0]]);
+          });
+        };
         var getters = {
           get invested_money() {
 
@@ -246,6 +253,23 @@ module.exports = {
             monthly: (size) => {
               promise_array.push(get_av('EMA','monthly',size,opts.ema_series_type, (res) => {
                 data.ema_data.monthly[size] = res;
+              }));
+            }
+          },
+          macd: {
+            get daily() {
+              promise_array.push(get_av('MACD','daily',undefined,opts.macd_series_type, (res) => {
+                data.macd.daily = res;
+              }));
+            },
+            get weekly() {
+              promise_array.push(get_av('MACD','weekly',undefined,opts.macd_series_type, (res) => {
+                data.macd.weekly = res;
+              }));
+            },
+            get monthly() {
+              promise_array.push(get_av('MACD','monthly',undefined,opts.macd_series_type, (res) => {
+                data.macd.monthly = res;
               }));
             }
           }
