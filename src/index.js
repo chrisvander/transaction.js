@@ -195,6 +195,9 @@ module.exports = {
           }
         }).then((res) => {
           res = JSON.parse(res);
+          if (res['Information']) throw new Error(
+            "Alpha Vantage Call volume exceeded - try decreasing how often the API is verified"
+            );
           var obj = res[Object.keys(res)[1]];
           var first_el = obj[Object.keys(obj)[0]];
           callback(first_el[Object.keys(first_el)[0]]);

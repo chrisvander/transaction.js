@@ -51,6 +51,6 @@ client.init({
 function emaAlgorithm(buy, sell, data) {
 	console.log("  ")
 	console.log(data.price);
-	console.log(data.sma.daily(50));
-	console.log(data.sma.daily(200));
+	console.log(data.ema.daily(10));
+	console.log(data.ema.daily(50));
 }
