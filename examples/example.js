@@ -6,12 +6,13 @@ const client = new Robinhood();
 
 // pass username, password, and trade function
 client.init({
-	username: process.env.RH_USERNAME,
-	password: process.env.RH_PASSWORD,
-}, trade);
-
-// Callback where all trading happens
-function trade(error) {
+	robinhood: {
+		username: process.env.RH_USERNAME,
+		password: process.env.RH_PASSWORD
+	},
+	alpha_vantage: process.env.ALPHA_VANTAGE,
+	news_api: process.env.NEWS_API
+}, (error) => {
 	if (error) {
 		console.log(error);
 		return;
@@ -24,27 +25,32 @@ function trade(error) {
 	// These algorithms should be designed to take data from ONE
 	// source, aka AAPL or BTC, and not try to balance multiple.
 	//
-	// Any algorithm function should return a Promise
+	// Algorithms will automatically be wrapped with data getters
+	// Before the algorithm runs, it will fetch the data necessary
+	//
+	// Validate algorithm before running by doing a "dry" run of provided 
+	// functions - those that need data requested will be added to 
+	// the dependencies for the algorithm automatically	
 
-  client.addAlgorithm('ema', emaAlgorithm);
+  client.addAlgorithm('algoOne', emaAlgorithm);
+
+  // client.execute returns a Promise
 
   // Execute a saved algorithm
   client.execute({
-  	name: 'ema',
-  	symbol: 'BTC',
-  	max_usd: '134.32'
+  	name: 'algoOne',
+  	symbol: 'AAPL',
+  	max_usd: '134.32',
+  	dry: true
   });
 
-  // or execute one in command by omitting 'name' from options
-  client.execute({
-  	symbol: 'BTC',
-  	max_usd: '134.32'
-  }, emaAlgorithm);
-}
+  client.logout();
+});
 
-// An algorithm that will take in data and reply with performance data or 
-function emaAlgorithm(buy,sell) {
-	console.log("started");
-
-
+// An algorithm that will take in data based on a particular signal
+function emaAlgorithm(buy, sell, data) {
+	console.log("  ")
+	console.log(data.price);
+	console.log(data.sma.daily(50));
+	console.log(data.sma.daily(200));
 }
