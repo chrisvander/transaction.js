@@ -231,13 +231,19 @@ module.exports = {
           },
           ema: {
             daily: (size) => {
-
+              promise_array.push(get_av('EMA','daily',size,opts.ema_series_type, (res) => {
+                data.ema_data.daily[size] = res;
+              }));
             },
             weekly: (size) => {
-
+              promise_array.push(get_av('EMA','weekly',size,opts.ema_series_type, (res) => {
+                data.ema_data.weekly[size] = res;
+              }));
             },
             monthly: (size) => {
-
+              promise_array.push(get_av('EMA','monthly',size,opts.ema_series_type, (res) => {
+                data.ema_data.monthly[size] = res;
+              }));
             }
           }
         };
