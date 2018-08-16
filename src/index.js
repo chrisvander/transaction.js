@@ -138,7 +138,7 @@ module.exports = {
 
     this.algo = {
       sell: (instr, price, quant) => {
-        if (quant != 0) {
+        if (quant !== 0) {
           return rp({
             uri: 'https://api.robinhood.com/orders/',
             method: 'POST',
@@ -151,15 +151,16 @@ module.exports = {
               type: 'market',
               time_in_force: 'gtc',
               trigger: 'immediate',
-              price: price,
+              price,
               quantity: quant,
               side: 'sell'
             }
           });
         }
+        return undefined;
       },
       buy: (instr, price, quant) => {
-        if (quant != 0) {
+        if (quant !== 0) {
           return rp({
             uri: 'https://api.robinhood.com/orders/',
             method: 'POST',
@@ -172,12 +173,13 @@ module.exports = {
               type: 'market',
               time_in_force: 'gtc',
               trigger: 'immediate',
-              price: price,
+              price,
               quantity: quant,
               side: 'buy'
             }
           });
         }
+        return undefined;
       },
       getStockData: async (opts, callback) => {
         let instr;
@@ -200,13 +202,22 @@ module.exports = {
         this.algo.passed_options = opts;
         const data = {
           buy: () => {
-            if (!opts.dry && parseFloat(quote.last_trade_price) < parseFloat(this.account.buying_power)) 
-              this.algo.buy(data.instrument, quote.last_trade_price, 
-                parseInt(parseFloat(this.account.buying_power) / parseFloat(quote.last_trade_price)));
+            if (!opts.dry &&
+              parseFloat(quote.last_trade_price) < parseFloat(this.account.buying_power)) {
+              this.algo.buy(
+                data.instrument, quote.last_trade_price,
+                parseInt(
+                  parseFloat(this.account.buying_power) /
+                  parseFloat(quote.last_trade_price),
+                  10
+                )
+              );
+            }
           },
           sell: () => {
-            if (!opts.dry && parseFloat(data.investment) > 0) 
+            if (!opts.dry && parseFloat(data.investment) > 0) {
               this.algo.sell(data.instrument, quote.last_trade_price, parseFloat(data.investment));
+            }
           },
           ema: {
             daily: size => data.ema_data.daily[size],
@@ -260,9 +271,9 @@ module.exports = {
             cback(firstEl[Object.keys(firstEl)[0]]);
           });
         };
-        var positions = this.positions
+        const positions = this.positions;
 
-        var stock = positions.find(stock => stock.instrument === instr.url);
+        const stock = positions.find(st => st.instrument === instr.url);
         if (stock) data.investment = stock.quantity;
         else data.investment = '0.0000';
 
