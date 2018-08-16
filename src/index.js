@@ -137,11 +137,47 @@ module.exports = {
     };
 
     this.algo = {
-      sell: () => {
-        // if (this.algo.passed_options.dry)
+      sell: (instr, price, quant) => {
+        if (quant != 0) {
+          return rp({
+            uri: 'https://api.robinhood.com/orders/',
+            method: 'POST',
+            headers: { Authorization: `Token ${token}` },
+            json: true,
+            form: {
+              account: this.account.url,
+              instrument: instr.url,
+              symbol: instr.symbol,
+              type: 'market',
+              time_in_force: 'gtc',
+              trigger: 'immediate',
+              price: price,
+              quantity: quant,
+              side: 'sell'
+            }
+          });
+        }
       },
-      buy: () => {
-        // if (this.algo.passed_options.dry)
+      buy: (instr, price, quant) => {
+        if (quant != 0) {
+          return rp({
+            uri: 'https://api.robinhood.com/orders/',
+            method: 'POST',
+            headers: { Authorization: `Token ${token}` },
+            json: true,
+            form: {
+              account: this.account.url,
+              instrument: instr.url,
+              symbol: instr.symbol,
+              type: 'market',
+              time_in_force: 'gtc',
+              trigger: 'immediate',
+              price: price,
+              quantity: quant,
+              side: 'buy'
+            }
+          });
+        }
       },
       getStockData: async (opts, callback) => {
         let instr;
@@ -163,6 +199,15 @@ module.exports = {
 
         this.algo.passed_options = opts;
         const data = {
+          buy: () => {
+            if (!opts.dry && parseFloat(quote.last_trade_price) < parseFloat(this.account.buying_power)) 
+              this.algo.buy(data.instrument, quote.last_trade_price, 
+                parseInt(parseFloat(this.account.buying_power) / parseFloat(quote.last_trade_price)));
+          },
+          sell: () => {
+            if (!opts.dry && parseFloat(data.investment) > 0) 
+              this.algo.sell(data.instrument, quote.last_trade_price, parseFloat(data.investment));
+          },
           ema: {
             daily: size => data.ema_data.daily[size],
             weekly: size => data.ema_data.weekly[size],
@@ -183,7 +228,10 @@ module.exports = {
             weekly: {},
             monthly: {}
           },
-          macd: {}
+          macd: {},
+          available_money: this.account.buying_power,
+          price: quote.last_trade_price,
+          instrument: instr
         };
         const promiseArray = [];
         const getAV = (func, interval, size, seriesType, cback) => {
@@ -201,26 +249,39 @@ module.exports = {
           }).then((res) => {
             const resParsed = JSON.parse(res);
             if (resParsed.Information) {
-              throw new Error('Alpha Vantage Call volume exceeded - try decreasing how often the API is verified');
+              throw new Error('Alpha Vantage Call volume exceeded - try decreasing how often the API is called');
             }
             if (resParsed['Error Message']) {
               throw new Error(res['Error Message']);
             }
             const obj = resParsed[Object.keys(resParsed)[1]];
+            if (!obj) throw new Error(obj);
             const firstEl = obj[Object.keys(obj)[0]];
             cback(firstEl[Object.keys(firstEl)[0]]);
           });
         };
+        var positions = this.positions
+
+        var stock = positions.find(stock => stock.instrument === instr.url);
+        if (stock) data.investment = stock.quantity;
+        else data.investment = '0.0000';
+
         const getters = {
-          get invested_money() {
-            return undefined;
-          },
           get available_money() {
-            return undefined;
+            return data.available_money;
+          },
+          get investment() {
+            return data.investment;
           },
           get price() {
-            data.price = quote.ask_price;
-            return undefined;
+            return data.price;
+          },
+          get quote() {
+            data.quote = quote;
+            return data.quote;
+          },
+          get instrument() {
+            return data.instrument;
           },
           get sentiment() {
             return undefined;
@@ -281,9 +342,9 @@ module.exports = {
           }
         };
 
-        callback(() => data, () => data, getters);
+        callback(() => data, () => data, getters, true);
         await Promise.all(promiseArray);
-        callback(this.algo.buy, this.algo.sell, data);
+        callback(data.buy, data.sell, data, false);
       },
     };
 
@@ -291,9 +352,7 @@ module.exports = {
       let toExec;
       if (opts.name && !func) toExec = this.algorithms.find(x => x.name === opts.name).func;
       else toExec = func;
-      return this.algo.getStockData(opts, toExec).catch((err) => {
-        throw new Error(err);
-      });
+      return this.algo.getStockData(opts, toExec);
     };
   },
 };
