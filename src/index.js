@@ -9,13 +9,22 @@ function handleRequestErrors(error, res, callback, callbackError) {
   else callback();
 }
 
-function login(user, pass, callback, err) {
-  request({
+function login(rh, callback, err) {
+  if (rh.token) {
+    var res = {
+      type: 'no_request',
+      body: {
+        token: rh.token
+      }
+    };
+    callback(res);
+  }
+  else request({
     uri: 'https://api.robinhood.com/api-token-auth/',
     method: 'POST',
     form: {
-      username: user,
-      password: pass
+      username: rh.username,
+      password: rh.password
     },
     json: true
   }, (error, res) => handleRequestErrors(error, res, () => {
@@ -65,18 +74,18 @@ module.exports = {
         if (error.error && error.error.detail === 'Invalid Token.') this.authorize(opts, callback, this);
         else callback(error);
       };
-      this.authorize(opts, callback, err);
+      if (token) this.logout(this.authorize(opts, callback, err));
+      else this.authorize(opts, callback, err);
     };
 
-    this.logout = () => reqWithAuth(token, 'https://api.robinhood.com/api-token-logout/', () => undefined, (err) => {
+    this.logout = (callback) => reqWithAuth(token, 'https://api.robinhood.com/api-token-logout/', callback, (err) => {
       throw new Error(err);
     }, 'POST');
 
     this.authorize = (opts, callback, err) => {
-      if (token) this.logout();
       if (opts.alphaVantage) alphaVantage = opts.alphaVantage;
       // if (opts.newsAPI) newsAPI = opts.newsAPI;
-      login(opts.robinhood.username, opts.robinhood.password, (res) => {
+      login(opts.robinhood, (res) => {
         // Creates requests object to track multiple requests to the API
         const requests = [];
 
