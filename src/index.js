@@ -1,3 +1,5 @@
+require('babel-polyfill');
+
 const request = require('request');
 const rp = require('request-promise');
 
