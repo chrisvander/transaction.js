@@ -1,6 +1,6 @@
 {
   "name": "transaction.js",
-  "version": "0.1.2",
+  "version": "0.1.2a",
   "description": "A tool for algorithmic trading based on Robinhood",
   "main": "./lib/index.js",
   "scripts": {
