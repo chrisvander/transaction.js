@@ -8,7 +8,8 @@ describe('Login to Robinhood', function() {
     client.init({
       robinhood: {
         username: process.env.RH_USERNAME,
-        password: process.env.RH_PASSWORD
+        password: process.env.RH_PASSWORD,
+        device_token: process.env.RH_DEVICE_TOKEN
       },
       alphaVantage: process.env.ALPHA_VANTAGE,
 		}, () => {

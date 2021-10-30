@@ -11,27 +11,31 @@ function handleRequestErrors(error, res, callback, callbackError) {
 
 function login(rh, callback, err) {
   if (rh.token) {
-    var res = {
+    callback({
       type: 'no_request',
       body: {
         token: rh.token
       }
-    };
-    callback(res);
+    });
+  } else {
+    request({
+      uri: 'https://api.robinhood.com/oauth2/token/',
+      method: 'POST',
+      form: {
+        username: rh.username,
+        password: rh.password,
+        grant_type: 'password',
+        scope: 'internal',
+        client_id: 'c82SH0WZOsabOXGP2sxqcj34FxkvfnWRZBKlBjFS',
+        device_token: rh.device_token
+      },
+      json: true
+    }, (error, res) => handleRequestErrors(error, res, () => {
+      if (res.body.access_token) callback(res);
+      else if (res.body.mfa_type) err('Requires MFA');
+      else err(res.body);
+    }, err));
   }
-  else request({
-    uri: 'https://api.robinhood.com/api-token-auth/',
-    method: 'POST',
-    form: {
-      username: rh.username,
-      password: rh.password
-    },
-    json: true
-  }, (error, res) => handleRequestErrors(error, res, () => {
-    if (res.body.token) callback(res);
-    else if (res.body.mfa_type) err('Requires MFA');
-    else err(res.body);
-  }, err));
 }
 
 function reqWithAuth(token, url, callback, err, type) {
@@ -39,7 +43,7 @@ function reqWithAuth(token, url, callback, err, type) {
   return rp({
     uri: url,
     method: rpMethod,
-    headers: { Authorization: `Token ${token}` },
+    headers: { Authorization: `Bearer ${token}` },
     json: true
   }).then(res => callback(res)).catch(error => err(error));
 }
@@ -48,7 +52,7 @@ function getPaginated(token, url, callback, err) {
   return rp({
     uri: url,
     method: 'GET',
-    headers: { Authorization: `Token ${token}` },
+    headers: { Authorization: `Bearer ${token}` },
     json: true
   }).then(async (res) => {
     if (res.next && res.next !== null) {
@@ -61,11 +65,6 @@ let alphaVantage;
 // let newsAPI;
 let token;
 
-// const get = (url, callback, err) => reqWithAuth(token, url, (res) => {
-//   if (res.results) callback(res.results);
-//   else callback(res);
-// }, err);
-
 module.exports = {
   Robinhood: function transaction() {
     this.portfolio = [];
@@ -74,13 +73,8 @@ module.exports = {
         if (error.error && error.error.detail === 'Invalid Token.') this.authorize(opts, callback, this);
         else callback(error);
       };
-      if (token) this.logout(this.authorize(opts, callback, err));
-      else this.authorize(opts, callback, err);
+      this.authorize(opts, callback, err);
     };
-
-    this.logout = (callback) => reqWithAuth(token, 'https://api.robinhood.com/api-token-logout/', callback, (err) => {
-      throw new Error(err);
-    }, 'POST');
 
     this.authorize = (opts, callback, err) => {
       if (opts.alphaVantage) alphaVantage = opts.alphaVantage;
@@ -90,7 +84,7 @@ module.exports = {
         const requests = [];
 
         // Saves the authorization token
-        token = res.body.token;
+        token = res.body.access_token;
 
         // Gathers the current account's past and present positions
         getPaginated(token, 'https://api.robinhood.com/positions/', (pos) => {
@@ -121,7 +115,7 @@ module.exports = {
             callback();
           });
         }, err);
-      });
+      }, err);
     };
 
     this.get = (url, callback, err) => reqWithAuth(token, url, (res) => {
@@ -153,7 +147,7 @@ module.exports = {
           return rp({
             uri: 'https://api.robinhood.com/orders/',
             method: 'POST',
-            headers: { Authorization: `Token ${token}` },
+            headers: { Authorization: `Bearer ${token}` },
             json: true,
             form: {
               account: this.account.url,
@@ -175,7 +169,7 @@ module.exports = {
           return rp({
             uri: 'https://api.robinhood.com/orders/',
             method: 'POST',
-            headers: { Authorization: `Token ${token}` },
+            headers: { Authorization: `Bearer ${token}` },
             json: true,
             form: {
               account: this.account.url,
@@ -240,16 +234,6 @@ module.exports = {
             weekly: size => data.sma_data.weekly[size],
             monthly: size => data.sma_data.monthly[size],
           },
-          ema_data: {
-            daily: {},
-            weekly: {},
-            monthly: {}
-          },
-          sma_data: {
-            daily: {},
-            weekly: {},
-            monthly: {}
-          },
           macd: {},
           available_money: this.account.buying_power,
           price: quote.last_trade_price,
@@ -288,85 +272,8 @@ module.exports = {
         if (stock) data.investment = stock.quantity;
         else data.investment = '0.0000';
 
-        const getters = {
-          get available_money() {
-            return data.available_money;
-          },
-          get investment() {
-            return data.investment;
-          },
-          get price() {
-            return data.price;
-          },
-          get quote() {
-            data.quote = quote;
-            return data.quote;
-          },
-          get instrument() {
-            return data.instrument;
-          },
-          get sentiment() {
-            return undefined;
-          },
-          sma: {
-            daily: (size) => {
-              promiseArray.push(getAV('SMA', 'daily', size, opts.sma_series_type, (res) => {
-                data.sma_data.daily[size] = res;
-              }));
-            },
-            weekly: (size) => {
-              promiseArray.push(getAV('SMA', 'weekly', size, opts.sma_series_type, (res) => {
-                data.sma_data.weekly[size] = res;
-              }));
-            },
-            monthly: (size) => {
-              promiseArray.push(getAV('SMA', 'monthly', size, opts.sma_series_type, (res) => {
-                data.sma_data.monthly[size] = res;
-              }));
-            }
-          },
-          ema: {
-            daily: (size) => {
-              promiseArray.push(getAV('EMA', 'daily', size, opts.ema_series_type, (res) => {
-                data.ema_data.daily[size] = res;
-              }));
-            },
-            weekly: (size) => {
-              promiseArray.push(getAV('EMA', 'weekly', size, opts.ema_series_type, (res) => {
-                data.ema_data.weekly[size] = res;
-              }));
-            },
-            monthly: (size) => {
-              promiseArray.push(getAV('EMA', 'monthly', size, opts.ema_series_type, (res) => {
-                data.ema_data.monthly[size] = res;
-              }));
-            }
-          },
-          macd: {
-            get daily() {
-              promiseArray.push(getAV('MACD', 'daily', undefined, opts.macd_series_type, (res) => {
-                data.macd.daily = res;
-              }));
-              return undefined;
-            },
-            get weekly() {
-              promiseArray.push(getAV('MACD', 'weekly', undefined, opts.macd_series_type, (res) => {
-                data.macd.weekly = res;
-              }));
-              return undefined;
-            },
-            get monthly() {
-              promiseArray.push(getAV('MACD', 'monthly', undefined, opts.macd_series_type, (res) => {
-                data.macd.monthly = res;
-              }));
-              return undefined;
-            }
-          }
-        };
-
-        callback(() => data, () => data, getters, true);
         await Promise.all(promiseArray);
-        callback(data.buy, data.sell, data, false);
+        callback(data.buy, data.sell, data);
       },
     };
 

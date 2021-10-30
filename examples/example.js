@@ -8,7 +8,8 @@ const client = new Robinhood();
 client.init({
 	robinhood: {
 		username: process.env.RH_USERNAME,
-		password: process.env.RH_PASSWORD
+		password: process.env.RH_PASSWORD,
+    device_token: process.env.RH_DEVICE_TOKEN
 	},
 	alphaVantage: process.env.ALPHA_VANTAGE,
 	newsAPI: process.env.NEWS_API
@@ -25,13 +26,6 @@ client.init({
 	//
 	// These algorithms should be designed to take data from ONE
 	// source, aka AAPL or GE, and not try to balance multiple.
-	//
-	// Algorithms will automatically be wrapped with data getters
-	// Before the algorithm runs, it will fetch the data necessary
-	// using getters in a dataset. Because of the way dependencies
-	// are grabbed, and to keep down the amount of requests being made
-	// to Alpha Vantage and other APIs, the data for each should be
-	// grabbed at the beginning and not live in the function.
 
   client.addAlgorithm('algoOne', emaAlgorithm);
 
@@ -40,12 +34,14 @@ client.init({
   client.execute({
   	name: 'algoOne',
   	symbol: 'AAPL',
-  	max_usd: '134.32', // maximum amount of capital in your account the
-  										 // algorithm will be allowed utilize
+  	max_usd: '134.32',
+  	dependencies: { 
+  		intraday: {
+  			
+  		}
+  	},
   }).catch((err) => {
     console.log(err);
-  }).then(() => {
-  	client.logout();
   });
 
   
@@ -54,7 +50,7 @@ client.init({
 // An algorithm that will take in data based on a particular signal
 // This algorithm is meant to be run once, straight throw. Multiple executions
 // should be defined in the main trading method.
-function emaAlgorithm(buy, sell, data, is_check) {
+function emaAlgorithm(buy, sell, data) {
 
 	var ema_40 = data.ema.daily(40);		// current EMA over 15 day period
 	var ema_120 = data.ema.daily(120);	// current EMA over 60 day period
@@ -63,8 +59,6 @@ function emaAlgorithm(buy, sell, data, is_check) {
 	// the algorithm isn't being checked for dependencies but is being 
 	// delivered necessary functions
 
-	if (!is_check) {
-		if (ema_40 < ema_120) sell();
-		else buy();
-	}
+	if (ema_40 < ema_120) sell();
+	else buy();
 }
